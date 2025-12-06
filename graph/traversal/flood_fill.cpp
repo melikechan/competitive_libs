@@ -32,48 +32,131 @@ ostream &operator<<(ostream &os, const vector<T> &v)
 vector<vector<ll>> grid;
 vector<vector<bool>> vis;
 
-// Election in Gurdalland (Incomplete)
-void hatred(ll r, ll c, ll rc, ll cc, vector<ll> &islandvotes)
+// Above code is my utilies for competitive programming, don't be confused, solution code is below.
+/*
+    In order to get the votes,
+    1) Hüseyin Burak has to get the maximal amount of votes
+    2) Maximal number of votes shouldn't have any ties.
+*/
+
+// Island processing (Flood Fill)
+void flood_fill(int x, int y, int n, int m, vector<vector<bool>> &vis, vector<vector<int>> &adj, vector<vector<int>> &total_votes)
 {
-    if (r < 0 || r >= rc || c < 0 || c >= cc || vis[r][c] || grid[r][c] == 0)
+    if (x < 0 || x >= n || y < 0 || y >= m || vis[x][y] || !adj[x][y])
     {
         return;
     }
-    vis[r][c] = true;
-    islandvotes[grid[r][c] - 1]++;
-    hatred(r + 1, c, rc, cc, islandvotes);
-    hatred(r - 1, c, rc, cc, islandvotes);
-    hatred(r, c + 1, rc, cc, islandvotes);
-    hatred(r, c - 1, rc, cc, islandvotes);
+    vis[x][y] = true;
+    total_votes.back()[adj[x][y]]++;
+    dfs(x + 1, y, n, m, vis, adj, total_votes);
+    dfs(x - 1, y, n, m, vis, adj, total_votes);
+    dfs(x, y + 1, n, m, vis, adj, total_votes);
+    dfs(x, y - 1, n, m, vis, adj, total_votes);
 }
 
 void solve()
 {
-    ll n, m;
+    int n, m;
     cin >> n >> m;
-    // ll ans = 0;
-    grid.assign(n, vector<ll>(m, 0));
-    vis.assign(n, vector<bool>(m, false));
-    vector<vector<ll>> islands;
-    vector<ll> total_votes(9, 0); // all candidates' votes
-    for (ll i = 0; i < n; i++)
+    vector<vector<int>> total_votes;
+    vector<vector<int>> grid(n, vector<int>(m));
+    for (int i = 0; i < n; i++)
     {
-        for (ll j = 0; j < m; j++)
+        for (int j = 0; j < m; j++)
         {
-            cin >> grid[i][j];
+            int x;
+            cin >> x;
+            grid[i][j] = x; // 0 is water, 1-9 are citizens.
         }
     }
 
-    for (ll i = 0; i < n; i++)
+    vector<vector<bool>> vis(n, vector<bool>(m, false));
+    // Get the islands.
+    for (int i = 0; i < n; i++)
     {
-        for (ll j = 0; j < m; j++)
+        for (int j = 0; j < m; j++)
         {
-            if (!vis[i][j] && grid[i][j] != 0)
+            if (!grid[i][j] || vis[i][j])
             {
-                vector<ll> island_votes(9, 0);
-                hatred(i, j, n, m, island_votes);
-                islands.push_back(island_votes);
+                continue;
             }
+            vector<int> temp(10);
+            total_votes.push_back(temp);
+            dfs(i, j, n, m, vis, grid, total_votes);
         }
     }
+
+    int total_citizens = 0;
+    for (int i = 0; i < total_votes.size(); i++)
+    {
+        for (int j = 1; j < 10; j++)
+        {
+            total_citizens += total_votes[i][j];
+        }
+    }
+
+    /*
+        This problem can be reduced into knapsack.
+        In classical knapsack problem, we try to maximize the value of the knapsack.
+        However, our goal in this problem is to minimize the cost of the knapsack. (Minimum amount of coins needed to get the corresponding amount of votes)
+        Be aware that this problem is not exactly a knapsack problem, but we use a SIMILAR APPROACH!
+    */
+    vector<int> dp(total_citizens / 2 + 2, intinf);
+    dp[0] = 0; // Hüseyin Burak can have 0 votes without spending any coin.
+
+    // To get the votes, Melike now has to spend coins.
+    for (int i = 0; i < total_votes.size(); i++)
+    {
+        int husejin_votes = total_votes[i][1];
+        int needed_max = 0;
+        int island_size = husejin_votes; // Total amount of votes in the island.
+
+        // In the above priority queue, we keep track of the votes that are greater than or equal to Hüseyin Burak's votes.
+        priority_queue<int> pq;
+
+        for (int j = 2; j < 10; j++)
+        {
+            island_size += total_votes[i][j];
+            if (total_votes[i][j] >= husejin_votes)
+            {
+                pq.push(total_votes[i][j]);
+            }
+        }
+
+        // Getting minimum amount of coins needed to get the votes.
+        while (!pq.empty() && pq.top() >= husejin_votes)
+        {
+            int x = pq.top();
+            pq.pop();
+            x--;
+            needed_max++;
+            husejin_votes++;
+            pq.push(x);
+        }
+
+        /*
+            Getting minimal amount of coins needed to get the votes.
+            Island size may be greater than total amount of votes needed, thus 0 is our bare minimum.
+        */
+        for (int j = dp.size() - 1; j >= 0; j--)
+        {
+            dp[j] = min(dp[j], dp[max(0, j - island_size)] + needed_max);
+        }
+    }
+
+    // To win the election, you have to get more than half of the votes.
+    cout << dp[total_citizens / 2 + 1] << "\n";
+}
+
+int main(void)
+{
+    ios_base::sync_with_stdio(0);
+    cin.tie(NULL);
+    cout.tie(NULL);
+
+    int t;
+    cin >> t;
+    while (t--)
+        solve();
+    return 0;
 }
